@@ -4,13 +4,13 @@ Living status doc. Update this as phases complete — `docs/plan.md` stays as th
 
 ## Milestone checklist
 
-**Phase 0 (a few days)**
+**Phase 0 (a few days)** — ✅ complete
 
-- [ ] Pi 4B, cooling, cable and SD/SSD ready
-- [ ] Intro Skipper, Litefin plugin and Seerr set up on the server
-- [ ] Test media library created
+- [x] Pi 4B, cooling, cable and SD/SSD ready
+- [x] Intro Skipper, Litefin plugin and Seerr set up on the server
+- [x] Test media library created
 
-**Phase 1 (1–2 weeks)**
+**Phase 1 (1–2 weeks)** — see [`../phase1/`](../phase1/)
 
 - [ ] 4K HEVC HDR plays smoothly from Jellyfin via mpv
 - [ ] Test matrix filled in for Path A and Path B

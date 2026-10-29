@@ -9,7 +9,8 @@ v1 targets a single Pi 4B for personal use. See [`docs/plan.md`](docs/plan.md) f
 - `litefin/` — upstream Litefin UI, as a submodule tracking its `release` branch. Untouched until Phase 2 (Linux platform adapter).
 - `docs/plan.md` — the original project brief (static reference).
 - `docs/tracking.md` — living milestone checklist, decisions log, and open questions.
+- `phase1/` — Pi setup instructions, the mpv test-path script, and the test matrix for Phase 1 (prove playback).
 
 ## Status
 
-Phase 0 (hardware & prerequisites) in progress. See `docs/tracking.md`.
+Phase 0 complete. Phase 1 (prove playback) in progress. See `docs/tracking.md`.
