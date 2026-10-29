@@ -1,0 +1,4 @@
+[submodule "litefin"]
+	path = litefin
+	url = https://github.com/MoazSalem/litefin.git
+	branch = release
