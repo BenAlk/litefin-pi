@@ -16,12 +16,22 @@ Living status doc. Update this as phases complete — `docs/plan.md` stays as th
 - [x] Test matrix filled in for Path A and Path B (core rows — some lighter rows still open, not blocking)
 - [x] Playback path chosen — **Path A**
 
-**Phase 2 (2–4 weeks)**
+**Phase 2 (2–4 weeks)** — started, not complete
 
 - [ ] Litefin auto-starts full-screen on boot
 - [ ] Browser chosen (Cog or Chromium)
 - [ ] Linux adapter: keys, discovery, power actions
 - [ ] Seerr request made from the TV
+
+**Session notes (movi-player/Tauri spike):**
+
+- Litefin already has a built-in `DesktopAdapter.js` (full keyboard nav, media keys, fullscreen, exit) and a Tauri v2 desktop build (`npm run package:linux`) — worth reusing rather than writing a Linux adapter from scratch, regardless of final browser/runtime choice.
+- Litefin's upstream Linux releases are **x86_64 only** (CI builds on `ubuntu-latest`) — no ARM64 build exists, so Tauri had to be compiled natively on the Pi. First build: ~40 min (24 min `npm install`, 3 min webpack, 36.5 min `cargo`/Rust). Rebuilds after are faster (~3-6 min).
+- Investigated `movi-player` (Litefin's desktop WASM/WebCodecs video engine, used by `MoviVideoPlayer.js`) as a possible alternative to the mpv/VLC-handoff architecture — **ruled out**: played 4K HEVC HDR10 at ~1fps, indicating it fell back to WASM/FFmpeg software decode rather than hardware WebCodecs decode on this Pi's WebKitGTK. Same failure class as mpv's software fallback from Phase 1.
+- Also found during this spike: WebKitGTK audio backend (OpenAL Soft) failed to open the ALSA device outright (`File descriptor in bad state`) — a separate, unresolved issue from the decode speed problem.
+- General UI navigation/browsing inside the Tauri window was also reported laggy, not just video playback — so Tauri/WebKitGTK is not yet a clear win for the kiosk-browser choice either. The original Cog vs. Chromium comparison is still open.
+- `cage` (the compositor) appears to lack Wayland text-input protocol support that WebKitGTK needs for text fields — typing into a focused input crashed the app outright in one test (resolved once by itself when "discovery" stopped, cause unconfirmed — revisit if reusing Tauri/WebKitGTK later).
+- **Conclusion: keep the Phase 1 VLC/bridge-daemon handoff architecture for playback** (proven, fast, reliable). Phase 2's actual kiosk-browser decision (Cog vs. Chromium vs. Tauri) still needs doing from a fresh start.
 
 **Phase 3 (3–6 weeks)**
 
