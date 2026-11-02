@@ -19,7 +19,7 @@ Living status doc. Update this as phases complete — `docs/plan.md` stays as th
 **Phase 2 (2–4 weeks)** — started, not complete
 
 - [ ] Litefin auto-starts full-screen on boot
-- [ ] Browser chosen (Cog or Chromium)
+- [x] Browser chosen — **Chromium**
 - [ ] Linux adapter: keys, discovery, power actions
 - [ ] Seerr request made from the TV
 
@@ -32,6 +32,8 @@ Living status doc. Update this as phases complete — `docs/plan.md` stays as th
 - General UI navigation/browsing inside the Tauri window was also reported laggy, not just video playback — so Tauri/WebKitGTK is not yet a clear win for the kiosk-browser choice either. The original Cog vs. Chromium comparison is still open.
 - `cage` (the compositor) appears to lack Wayland text-input protocol support that WebKitGTK needs for text fields — typing into a focused input crashed the app outright in one test (resolved once by itself when "discovery" stopped, cause unconfirmed — revisit if reusing Tauri/WebKitGTK later).
 - **Conclusion: keep the Phase 1 VLC/bridge-daemon handoff architecture for playback** (proven, fast, reliable). Phase 2's actual kiosk-browser decision (Cog vs. Chromium vs. Tauri) still needs doing from a fresh start.
+
+**Session notes (Cog vs. Chromium comparison):** resolved above as a browser decision. One important forward-looking note for Phase 3: `cage` defaults to the TV's native 4K mode, which is wrong for the Litefin UI (1080p, set via `wlr-randr`) but *right* for actual 4K video playback (VLC needs the content-matched mode, e.g. `--drm-mode=9` for 3840x2160@23.976Hz, per Phase 1). The bridge daemon will need to explicitly switch the compositor's output mode down to 1080p when returning to Litefin and back up to the content-matched mode when handing off to VLC — this isn't automatic, and hasn't been built yet.
 
 **Phase 3 (3–6 weeks)**
 
@@ -59,7 +61,7 @@ Living status doc. Update this as phases complete — `docs/plan.md` stays as th
 | Repo name | Decided | `litefin-pi` |
 | Litefin source | Decided | Submodule at `litefin/`, tracking upstream `release` branch (github.com/MoazSalem/litefin), currently v2.0.20 |
 | Playback path: A, B or a mix | Decided | **Path A** — VLC inside `cage` (`cvlc --vout=wl_dmabuf --avcodec-hw=drm_avcodec`), coexisting with the kiosk compositor. Seamless transitions, no black-flash switching to/from Litefin. Both 4K HEVC HDR10 and 1080p H.264 play smoothly (brief sub-second judder on the HDR10 file at playback start only, from the compositor's fixed 30Hz mode vs. the file's 23.976fps — judged acceptable/imperceptible in practice). Path B also works but was passed over for its ~1s black-screen flash each time playback starts/stops. |
-| Browser: Cog or Chromium | Pending | After Phase 2 |
+| Browser: Cog or Chromium | Decided | **Chromium.** Both were initially jerky, but turned out to be rendering/compositing at the TV's full 4096x2160 mode — `cage` defaults to the first/highest-resolution DRM mode, and the plan's own risk table predicted exactly this ("Browser UI too slow on the Pi 4 → Render at 1080p"). Forcing 1080p via `wlr-randr --output HDMI-A-1 --mode 1920x1080@60.000000Hz` fixed both, but Chromium felt noticeably smoother than Cog in the resulting head-to-head. RAM was ruled out as a factor (`free -h` showed 2.8Gi available, ~7MB swap used during testing). |
 | OS base: Raspberry Pi OS or Buildroot | Pending | After Phase 5 |
 | Native player: mpv or VLC | Decided | **VLC.** mpv's generic cross-platform hwaccel/VO code hit multiple unresolved issues on this Pi 4 (Vulkan hwdec-interop segfault, intermittent HEVC decoder stalls regardless of path/flags, broken audio under `cage`/Wayland) despite ruling out thermal/power throttling and test-session resource leakage as causes. VLC has a dedicated Raspberry Pi DRM/avcodec integration (`drm_vout`, `drm_avcodec`) and played both the 4K HEVC HDR10 file and the 1080p H.264 file that defeated mpv perfectly on the first real attempt. See `../phase1/test-matrix.md` for the full debugging trail. mpv is no longer the assumed Phase 3 player backend — plan language referring to mpv should be read as "the native player (VLC)" going forward. |
 | 4K HEVC HDR10 direct-play on the Pi | Decided | **Direct-plays fine via VLC** (`--avcodec-hw=drm_avcodec`) — no need to lean on the server's RTX 4070 for this after all. TV has no HDR support, so HDR10 content displays as tone-mapped SDR; looked correct, not washed out. |
