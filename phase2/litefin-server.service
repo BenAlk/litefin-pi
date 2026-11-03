@@ -1,0 +1,14 @@
+[Unit]
+Description=Litefin web static file server
+After=network.target
+
+[Service]
+Type=simple
+User=benalk
+WorkingDirectory=/home/benalk/litefin/dist/web
+ExecStart=/usr/bin/python3 -m http.server 8080 --bind 127.0.0.1
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

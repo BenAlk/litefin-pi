@@ -16,9 +16,9 @@ Living status doc. Update this as phases complete — `docs/plan.md` stays as th
 - [x] Test matrix filled in for Path A and Path B (core rows — some lighter rows still open, not blocking)
 - [x] Playback path chosen — **Path A**
 
-**Phase 2 (2–4 weeks)** — started, not complete
+**Phase 2 (2–4 weeks)** — started, not complete, see [`../phase2/`](../phase2/)
 
-- [ ] Litefin auto-starts full-screen on boot
+- [x] Litefin auto-starts full-screen on boot — confirmed surviving a cold reboot, no console screen visible
 - [x] Browser chosen — **Chromium**
 - [ ] Linux adapter: keys, discovery, power actions
 - [ ] Seerr request made from the TV
@@ -34,6 +34,8 @@ Living status doc. Update this as phases complete — `docs/plan.md` stays as th
 - **Conclusion: keep the Phase 1 VLC/bridge-daemon handoff architecture for playback** (proven, fast, reliable). Phase 2's actual kiosk-browser decision (Cog vs. Chromium vs. Tauri) still needs doing from a fresh start.
 
 **Session notes (Cog vs. Chromium comparison):** resolved above as a browser decision. One important forward-looking note for Phase 3: `cage` defaults to the TV's native 4K mode, which is wrong for the Litefin UI (1080p, set via `wlr-randr`) but *right* for actual 4K video playback (VLC needs the content-matched mode, e.g. `--drm-mode=9` for 3840x2160@23.976Hz, per Phase 1). The bridge daemon will need to explicitly switch the compositor's output mode down to 1080p when returning to Litefin and back up to the content-matched mode when handing off to VLC — this isn't automatic, and hasn't been built yet.
+
+**Session notes (kiosk auto-start, `phase2/`):** built and verified. One real gotcha hit and fixed: the default `getty@tty1.service` (console login prompt) competes with `litefin-kiosk.service` for the same VT (`TTYPath=/dev/tty1`) — both report "active" in systemd with no error, but on a cold boot `getty` wins and the console login screen stays visible instead of Litefin. Fix: `sudo systemctl mask getty@tty1.service` (now documented in `phase2/README.md` and declared via `Conflicts=` in the unit file). Confirmed working through a full cold reboot: no console screen, straight to Litefin at 1080p.
 
 **Phase 3 (3–6 weeks)**
 

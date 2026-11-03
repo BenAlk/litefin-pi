@@ -1,0 +1,21 @@
+[Unit]
+Description=Litefin kiosk (cage + Chromium)
+After=litefin-server.service seatd.service systemd-logind.service getty@tty1.service
+Requires=litefin-server.service seatd.service
+Conflicts=getty@tty1.service
+
+[Service]
+Type=simple
+User=benalk
+# PAMName+TTYPath gives this service a real logind session (seat, VT),
+# the same mechanism an interactive console login gets - cage needs
+# this to acquire the display when there's no desktop session.
+PAMName=login
+TTYPath=/dev/tty1
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+ExecStart=/usr/bin/cage -- /home/benalk/kiosk/kiosk-wrapper.sh
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
