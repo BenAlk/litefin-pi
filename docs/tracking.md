@@ -16,12 +16,12 @@ Living status doc. Update this as phases complete — `docs/plan.md` stays as th
 - [x] Test matrix filled in for Path A and Path B (core rows — some lighter rows still open, not blocking)
 - [x] Playback path chosen — **Path A**
 
-**Phase 2 (2–4 weeks)** — started, not complete, see [`../phase2/`](../phase2/)
+**Phase 2 (2–4 weeks)** — ✅ complete, see [`../phase2/`](../phase2/)
 
 - [x] Litefin auto-starts full-screen on boot — confirmed surviving a cold reboot, no console screen visible
 - [x] Browser chosen — **Chromium**
 - [x] Linux adapter: keys, discovery — `LinuxAdapter.js` confirmed working (Home/Insert, arrows, Escape/Backspace-as-back, media keys). Power actions (exit/reboot/shutdown) still deferred to Phase 3's bridge daemon, as planned.
-- [ ] Seerr request made from the TV
+- [x] Seerr request made from the TV — confirmed working
 
 **Session notes (movi-player/Tauri spike):**
 
@@ -53,11 +53,29 @@ Living status doc. Update this as phases complete — `docs/plan.md` stays as th
 - [ ] Pi 4 device profile in place; no unexpected transcodes
 - [ ] Skip-intro prompt and up-next working in mpv
 
-**Phase 4 (1–2 weeks)**
+**Phase 4 (1–2 weeks)** — in progress, see [`../phase4/`](../phase4/) — reordered ahead of Phase 3 (doesn't depend on the bridge daemon, and makes all future testing easier than `wtype`)
 
 - [ ] TV remote works over CEC
-- [ ] Fire TV remote paired and reconnects after reboot
+- [x] Fire TV remote paired, reconnects (with a ~15s wake-from-idle delay, accepted), and remaps correctly — confirmed working end to end in Litefin
 - [ ] TV wakes and switches input on boot
+
+**Session notes (Fire TV remote pairing):** Remote identified as Bluetooth device `B8:5F:98:7C:5D:7E`, name "AR", registers as input device "AR Keyboard" once connected (not shown in `evtest`'s initial device list — only appears after `bluetoothctl connect`, since it disconnects when idle). Button codes confirmed via `evtest`:
+
+| Button | Sends (Linux KEY_*) | Remap needed |
+| --- | --- | --- |
+| Arrows | UP/DOWN/LEFT/RIGHT | None — standard |
+| OK/Select | KPENTER (96) | Probably none — browsers treat as Enter |
+| Back | BACK (158) | → **ESC** (LinuxAdapter listens for Escape, not KEY_BACK) |
+| Home | HOMEPAGE (172) | → **INSERT** (LinuxAdapter's Home key, not F1 — see Phase 2 notes) |
+| Rewind | REWIND (168) | None — standard |
+| Fast-forward | FASTFORWARD (208) | None — standard |
+| Play/Pause | PLAYPAUSE (164) | None — standard |
+| Volume/Mute | VOLUMEUP/DOWN/MUTE | None needed; arrives over Bluetooth on this remote (plan assumed IR-only on newer models — not the case here, but harmless, nothing listens for it specially) |
+| Menu | MENU (139) | None — standard. Note: Litefin has no existing keyboard binding for "item options" anywhere (checked — not Tizen/webOS/Desktop/Web either), so Menu currently does nothing in the UI. Not a regression, just an unbuilt feature; out of scope for remote remapping itself. |
+
+**Reconnect-from-idle reliability:** initially very flaky ("sometimes nothing"). Ruled out a competing bond with the original Fire TV Stick (confirmed not powered on). Factory-reset the remote (Home + Back held ~12s — no visibly distinct reset LED pattern on this model, but appears to have worked) and re-paired fresh; reconnect became *consistent* but with a **~15s wake-from-idle delay**. BlueZ logs show `hog-lib.c:report_reference_cb()` GATT descriptor read errors during reconnect — a known BLE HID-over-GATT quirk, not something we caused. Decided to accept the 15s delay for now rather than keep digging (likely only bites after a real pause in use, not between individual button presses) — revisit if it's annoying in daily use.
+
+**Session notes (`keyd` remap, `phase4/firetv-remote.keyd.conf`):** installed cleanly via apt (`keyd` 2.5.0, Debian 13). Initial config scoped to the remote's specific vendor:product (`[ids]` section with `0171:0413`) was silently ignored — `keyd` logged `DEVICE: ignoring ... (AR Keyboard)` with no parse errors, cause not identified. Switched to `*` (match all keyboards, following the format of keyd's own shipped example config) and it worked immediately (`DEVICE: match ...`). Safe to leave broad: `back`/`homepage` key codes aren't produced by normal keyboards, so matching "all devices" doesn't cause unwanted remaps elsewhere. Verified via `evtest` on the `keyd virtual keyboard` output device (not the raw remote device) that Back → `KEY_ESC` and Home → `KEY_INSERT` correctly, everything else passes through unchanged — then confirmed working end to end through the actual Litefin UI on the TV.
 
 **Phase 5 (2–6 weeks)**
 
