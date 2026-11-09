@@ -53,11 +53,11 @@ Living status doc. Update this as phases complete — `docs/plan.md` stays as th
 - [ ] Pi 4 device profile in place; no unexpected transcodes
 - [ ] Skip-intro prompt and up-next working in mpv
 
-**Phase 4 (1–2 weeks)** — in progress, see [`../phase4/`](../phase4/) — reordered ahead of Phase 3 (doesn't depend on the bridge daemon, and makes all future testing easier than `wtype`)
+**Phase 4 (1–2 weeks)** — ✅ complete, see [`../phase4/`](../phase4/) — reordered ahead of Phase 3 (doesn't depend on the bridge daemon, and makes all future testing easier than `wtype`)
 
 - [x] TV remote works over CEC — volume and power-off control confirmed working out of the box (no explicit CEC service configured yet, just Pi OS's default CEC-to-input driver). One real bug found and fixed: see session notes.
 - [x] Fire TV remote paired, reconnects (with a ~15s wake-from-idle delay, accepted), and remaps correctly — confirmed working end to end in Litefin
-- [ ] TV wakes and switches input on boot
+- [x] TV wakes and switches input on boot — works already, no explicit setup needed (TV's own HDMI-signal-detection and/or the Pi's default CEC "active source" announcement on HDMI link-up)
 
 **Session notes (Fire TV remote pairing):** Remote identified as Bluetooth device `B8:5F:98:7C:5D:7E`, name "AR", registers as input device "AR Keyboard" once connected (not shown in `evtest`'s initial device list — only appears after `bluetoothctl connect`, since it disconnects when idle). Button codes confirmed via `evtest`:
 

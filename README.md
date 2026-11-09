@@ -11,8 +11,8 @@ v1 targets a single Pi 4B for personal use. See [`docs/plan.md`](docs/plan.md) f
 - `docs/tracking.md` — living milestone checklist, decisions log, and open questions.
 - `phase1/` — Pi setup instructions, the VLC test-path script, and the test matrix for Phase 1 (prove playback).
 - `phase2/` — kiosk auto-start setup (systemd services, wrapper script, Linux platform adapter) for Phase 2 (Litefin in a kiosk browser).
-- `phase4/` — Fire TV remote pairing and `keyd` remap config for Phase 4 (input). Reordered ahead of Phase 3.
+- `phase4/` — Fire TV remote pairing, HDMI-CEC setup, and the `keyd` remap config for Phase 4 (input). Reordered ahead of Phase 3.
 
 ## Status
 
-Phase 0, Phase 1, and Phase 2 complete. Phase 4's Fire TV remote working (HDMI-CEC not yet started); Phase 3 (bridge daemon) up next. See `docs/tracking.md`.
+Phase 0, Phase 1, Phase 2, and Phase 4 complete. Phase 3 (bridge daemon) up next. See `docs/tracking.md`.

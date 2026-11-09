@@ -4,7 +4,7 @@ Goal: both the TV remote (via HDMI-CEC) and the Fire TV remote arrive as plain k
 
 **Reordered ahead of Phase 3** — doesn't depend on the bridge daemon, and real remote input makes every other phase's testing far less painful than `wtype`.
 
-**Status:** Fire TV remote done. HDMI-CEC volume/power control works out of the box (Pi OS's default CEC-to-input driver, no explicit `cec-ctl` service needed) — but had one real bug (see step 5). TV auto-wake/input-switch on Pi boot not yet tested.
+**Status: complete.** Fire TV remote working. HDMI-CEC volume/power control works out of the box (Pi OS's default CEC-to-input driver, no explicit `cec-ctl` service needed) — had one real bug, now fixed (see step 5). TV auto-wake/input-switch on Pi boot also confirmed working with no explicit setup — observed the TV wake automatically on a Pi power-cycle.
 
 ## 1. Pair the Fire TV remote
 
@@ -110,10 +110,10 @@ sudo systemctl restart systemd-logind
 
 Test by pressing power-off on the TV remote — the TV should go to standby without taking the Pi down with it (confirm by SSHing back in immediately after).
 
-**Not yet done:** the other half of the plan's CEC exit criteria — "the TV wakes and switches input when the Pi boots" — hasn't been set up or tested. No explicit `cec-ctl --playback --osd-name` boot-time registration service exists yet either; CEC working at all right now is just the kernel driver's default behavior.
+The other half of the plan's CEC exit criteria — "the TV wakes and switches input when the Pi boots" — also works, confirmed by observing the TV wake automatically on a Pi power-cycle. No explicit `cec-ctl --playback --osd-name` boot-time registration service was needed; this is just the kernel driver's default behavior (likely the TV's own HDMI-signal detection and/or the Pi announcing itself as CEC active source on HDMI link-up).
 
-## 6. Exit criteria
+## 6. Exit criteria — met
 
 - [x] With no keyboard attached, the Fire TV remote can browse, play, pause, and get back to Home
 - [x] HDMI-CEC volume/power control works, and TV standby doesn't take the Pi down with it
-- [ ] TV wakes and switches input on boot — not started
+- [x] TV wakes and switches input on boot
