@@ -1,10 +1,10 @@
-# Phase 4: input — Fire TV remote (CEC not yet done)
+# Phase 4: input — Fire TV remote and HDMI-CEC
 
 Goal: both the TV remote (via HDMI-CEC) and the Fire TV remote arrive as plain key presses, so Litefin and the player never need to know which one was used. See [`../docs/plan.md`](../docs/plan.md#phase-4-input--cec-and-fire-tv-remote) for the full context.
 
 **Reordered ahead of Phase 3** — doesn't depend on the bridge daemon, and real remote input makes every other phase's testing far less painful than `wtype`.
 
-**Status: Fire TV remote done. HDMI-CEC not started.**
+**Status:** Fire TV remote done. HDMI-CEC volume/power control works out of the box (Pi OS's default CEC-to-input driver, no explicit `cec-ctl` service needed) — but had one real bug (see step 5). TV auto-wake/input-switch on Pi boot not yet tested.
 
 ## 1. Pair the Fire TV remote
 
@@ -94,8 +94,26 @@ sudo journalctl -u keyd --no-pager -l | tail -5
 
 Should show `DEVICE: match ... (AR Keyboard)`. Find `keyd`'s virtual output device (`cat /proc/bus/input/devices`, look for `"keyd virtual keyboard"`) and `evtest` *that* device — Back should now show `KEY_ESC`, Home should show `KEY_INSERT`.
 
-## 5. Exit criteria
+## 5. HDMI-CEC
+
+Volume and power control over CEC worked immediately with no explicit configuration — Raspberry Pi OS's default `vc4-hdmi` CEC-to-input driver handles it already (visible in `dmesg` since Phase 1 as `rc-cec`).
+
+**But there's a real bug to fix first:** TV standby over CEC will take the **Pi down too** as a genuine OS shutdown, not just a display blank — and Pi 4 hardware can't be woken from a true poweroff via CEC/remote, so only a physical power-cycle brings it back. Cause: the CEC standby signal arrives as a `KEY_POWER` input event, and `systemd-logind`'s default (`HandlePowerKey=poweroff`) reacts to it like a real power-button press, system-wide, regardless of source.
+
+Install the fix:
+
+```
+sudo mkdir -p /etc/systemd/logind.conf.d
+sudo cp logind-ignore-cec-power.conf /etc/systemd/logind.conf.d/
+sudo systemctl restart systemd-logind
+```
+
+Test by pressing power-off on the TV remote — the TV should go to standby without taking the Pi down with it (confirm by SSHing back in immediately after).
+
+**Not yet done:** the other half of the plan's CEC exit criteria — "the TV wakes and switches input when the Pi boots" — hasn't been set up or tested. No explicit `cec-ctl --playback --osd-name` boot-time registration service exists yet either; CEC working at all right now is just the kernel driver's default behavior.
+
+## 6. Exit criteria
 
 - [x] With no keyboard attached, the Fire TV remote can browse, play, pause, and get back to Home
-- [ ] HDMI-CEC (TV remote) — not started
+- [x] HDMI-CEC volume/power control works, and TV standby doesn't take the Pi down with it
 - [ ] TV wakes and switches input on boot — not started
