@@ -1,0 +1,12 @@
+{
+  "name": "litefin-bridge-daemon",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test --test-force-exit test/"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
