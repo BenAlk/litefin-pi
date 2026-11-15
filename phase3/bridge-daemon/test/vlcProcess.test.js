@@ -26,10 +26,12 @@ test('start spawns vlc with the Phase 1 playback flags, http interface flags, an
     assert.ok(args.includes('--avcodec-hw=drm_avcodec'));
     assert.ok(args.includes('--aout=alsa'));
     assert.ok(args.includes('--alsa-audio-device=plughw:CARD=vc4hdmi0,DEV=0'));
-    assert.ok(args.includes('--extraintf=http'));
+    assert.ok(args.includes('--extraintf=http,luaintf'));
     assert.ok(args.includes('--http-password=sekrit'));
     assert.ok(args.includes('--http-host=127.0.0.1'));
     assert.ok(args.includes('--http-port=9191'));
+    assert.ok(args.includes('--lua-intf=litefin'));
+    assert.ok(args.includes('--mouse-hide-timeout=1'));
     assert.ok(args.includes('--play-and-exit'));
     assert.ok(args.includes('--start-time=90'));
     assert.ok(args.includes('http://server/stream.mkv'));

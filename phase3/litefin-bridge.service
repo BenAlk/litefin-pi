@@ -1,11 +1,17 @@
 [Unit]
 Description=Litefin VLC bridge daemon
-After=network.target
+After=network.target litefin-kiosk.service
 
 [Service]
 Type=simple
 User=benalk
 WorkingDirectory=/home/benalk/litefin-bridge
+# VLC needs these to find cage's Wayland socket to actually display video -
+# without them, VLC's --vout=wl_dmabuf output never connects, while the
+# demux/decode/audio pipeline keeps running and still reports a 'playing'
+# HTTP state, so nothing visibly fails (confirmed on real hardware - Task 10).
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=WAYLAND_DISPLAY=wayland-0
 ExecStart=/usr/bin/node src/index.js
 Restart=always
 RestartSec=2
