@@ -1,6 +1,6 @@
 import { WebSocketServer } from 'ws';
 
-const EVENT_TYPES = ['playbackstart', 'playing', 'pause', 'timeupdate', 'ended', 'error', 'loadedmetadata', 'upnext'];
+const EVENT_TYPES = ['playbackstart', 'playing', 'pause', 'timeupdate', 'ended', 'remotestop', 'error', 'loadedmetadata', 'upnext'];
 
 export function createServer({ port, createSession }) {
     const wss = new WebSocketServer({ host: '127.0.0.1', port });

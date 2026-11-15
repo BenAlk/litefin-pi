@@ -1,12 +1,11 @@
--- Litefin VLC interface script: Back/Escape stops playback (cage gives VLC
--- exclusive input focus during playback, so Litefin's own key handler never
--- sees this key - see docs/superpowers/specs/2026-11-09-phase3-bridge-daemon-design.md),
--- and shows a skip-intro prompt from Intro Skipper timestamps written by the
--- bridge daemon. The file is re-read on every loop iteration, not just once
--- at startup: the daemon resets it to {} when VLC spawns and only fills in
--- real timestamps later, once Litefin's skip-intro plugin resolves its own
--- segment fetch (which happens after playback has already started - see
--- Global Constraints in the plan this script was built from).
+-- Litefin VLC interface script: shows a skip-intro OSD prompt from Intro
+-- Skipper timestamps written by the bridge daemon. This is drawing text
+-- over VLC's own video surface, the one thing only VLC itself can do -
+-- actually confirming the skip, and all other playback control (stop,
+-- pause, seek), is handled by the bridge daemon directly over VLC's HTTP
+-- interface, driven by its own read of the remote's input device. VLC's
+-- own key handling (globalhotkeys) does not work under Wayland/cage - see
+-- docs/superpowers/specs/2026-11-12-remote-input-bypass-design.md.
 
 local intro_start = nil
 local intro_end = nil
@@ -41,24 +40,6 @@ function deactivate()
 end
 
 function input_changed()
-end
-
-function key_pressed()
-    local key = vlc.var.get(vlc.object.libvlc(), 'key-pressed')
-    if key == 'Esc' then
-        vlc.playlist.stop()
-    elseif key == 'Enter' and prompt_shown and intro_end then
-        local input = vlc.object.input()
-        if input then
-            -- 'time' is in microseconds (same unit the read side divides
-            -- by 1000000 for, just below), but intro_end is in seconds -
-            -- convert back or this seeks to roughly time-zero instead of
-            -- past the intro.
-            vlc.var.set(input, 'time', intro_end * 1000000)
-        end
-        prompt_shown = false
-        vlc.osd.message('', 1)
-    end
 end
 
 while true do

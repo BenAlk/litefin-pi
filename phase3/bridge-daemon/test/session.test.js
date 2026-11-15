@@ -140,6 +140,22 @@ test('stop sends pl_stop, kills vlc, and restores ui display mode', async () => 
     assert.deepEqual(displayMode.calls, ['playback', 'ui']);
 });
 
+test('stopFromRemote stops playback like stop() and additionally emits remotestop, not ended, so Litefin reports the real position instead of the full duration', async () => {
+    const { session, vlcProcess, displayMode } = makeSession({ pollIntervalMs: 100000 });
+    await session.load({ url: 'http://server/stream.mkv' });
+    let remoteStopped = false;
+    let endedFired = false;
+    session.on('remotestop', () => { remoteStopped = true; });
+    session.on('ended', () => { endedFired = true; });
+
+    await session.stopFromRemote();
+
+    assert.equal(vlcProcess.stopped, true);
+    assert.deepEqual(displayMode.calls, ['playback', 'ui']);
+    assert.equal(remoteStopped, true);
+    assert.equal(endedFired, false);
+});
+
 test('pause sends pl_pause command', async () => {
     const { session, httpClient } = makeSession({ pollIntervalMs: 100000 });
     await session.load({ url: 'http://server/stream.mkv' });
@@ -254,3 +270,105 @@ test('load resets the intro-skipper file, and setIntroSkipperTimestamps writes c
 
     fs.unlinkSync(introSkipperFilePath);
 });
+
+test('isIntroWindowActive is false before any intro timestamps are set', async () => {
+    const { session } = makeSession({ pollIntervalMs: 100000 });
+
+    await session.load({ url: 'http://server/stream.mkv' });
+
+    assert.equal(session.isIntroWindowActive(), false);
+});
+
+test('isIntroWindowActive reflects the last polled time against the stored intro bounds', async () => {
+    const httpClient = fakeVlcHttpClient([]);
+    let time = 10;
+    httpClient.getStatus = async () => ({ state: 'playing', time, length: 1000, audioTracks: [], subtitleTracks: [] });
+    const { session } = makeSession({ httpClient, pollIntervalMs: 5 });
+
+    await session.load({ url: 'http://server/stream.mkv' });
+    session.setIntroSkipperTimestamps({ introStartTicks: 300000000, introEndTicks: 900000000 }); // 30s-90s
+
+    time = 10;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.equal(session.isIntroWindowActive(), false);
+
+    time = 45;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.equal(session.isIntroWindowActive(), true);
+
+    time = 95;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.equal(session.isIntroWindowActive(), false);
+
+    await session.stop();
+});
+
+test('isIntroWindowActive is false again after setIntroSkipperTimestamps is cleared', async () => {
+    const { session } = makeSession({ pollIntervalMs: 100000 });
+
+    await session.load({ url: 'http://server/stream.mkv' });
+    session.setIntroSkipperTimestamps({ introStartTicks: 0, introEndTicks: 900000000 });
+    assert.equal(session.isIntroWindowActive(), true); // time=0 from load's initial status, within 0-90s
+
+    session.setIntroSkipperTimestamps({});
+    assert.equal(session.isIntroWindowActive(), false);
+});
+
+test('load() clears intro bounds left over from a previous episode', async () => {
+    const httpClient = fakeVlcHttpClient([]);
+    httpClient.getStatus = async () => ({ state: 'playing', time: 0, length: 100, audioTracks: [], subtitleTracks: [] });
+    const { session } = makeSession({ httpClient, pollIntervalMs: 100000 });
+
+    await session.load({ url: 'http://server/episode1.mkv' });
+    session.setIntroSkipperTimestamps({ introStartTicks: 0, introEndTicks: 900000000 });
+    assert.equal(session.isIntroWindowActive(), true);
+
+    await session.load({ url: 'http://server/episode2.mkv' });
+
+    assert.equal(session.isIntroWindowActive(), false);
+});
+
+test('seekPastIntro seeks to the stored intro end', async () => {
+    const { session, httpClient } = makeSession({ pollIntervalMs: 100000 });
+
+    await session.load({ url: 'http://server/stream.mkv' });
+    session.setIntroSkipperTimestamps({ introStartTicks: 300000000, introEndTicks: 900000000 });
+    await session.seekPastIntro();
+
+    assert.deepEqual(httpClient.sentCommands.find((c) => c.command === 'seek'), { command: 'seek', params: { val: '90' } });
+});
+
+test('seekPastIntro does nothing if no intro bounds are set', async () => {
+    const { session, httpClient } = makeSession({ pollIntervalMs: 100000 });
+
+    await session.load({ url: 'http://server/stream.mkv' });
+    await session.seekPastIntro();
+
+    assert.equal(httpClient.sentCommands.find((c) => c.command === 'seek'), undefined);
+});
+
+const fireAndForgetMethods = [
+    ['pause', (session) => session.pause()],
+    ['resume', (session) => session.resume()],
+    ['seek', (session) => session.seek(300000000)],
+    ['setAudioTrack', (session) => session.setAudioTrack(1)],
+    ['setSubtitleTrack', (session) => session.setSubtitleTrack(1)]
+];
+
+for (const [name, invoke] of fireAndForgetMethods) {
+    test(`${name} does not throw or reject when httpClient is null (e.g. called before load populates it)`, async () => {
+        const { session } = makeSession({ pollIntervalMs: 100000 });
+        await session.load({ url: 'http://server/stream.mkv' });
+        session._httpClient = null; // simulates the reconnect window in which a Session exists but load() hasn't populated it yet
+
+        await assert.doesNotReject(() => invoke(session));
+    });
+
+    test(`${name} does not throw or reject when sendCommand rejects (e.g. vlc already died)`, async () => {
+        const { session, httpClient } = makeSession({ pollIntervalMs: 100000 });
+        await session.load({ url: 'http://server/stream.mkv' });
+        httpClient.sendCommand = async () => { throw new Error('connection refused'); };
+
+        await assert.doesNotReject(() => invoke(session));
+    });
+}

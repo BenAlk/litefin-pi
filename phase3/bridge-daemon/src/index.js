@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import { execFile, execFileSync } from 'node:child_process';
 import { spawn } from 'node:child_process';
 import { createServer } from './server.js';
@@ -5,6 +6,8 @@ import { Session } from './session.js';
 import { createVlcProcess } from './vlcProcess.js';
 import { createVlcHttpClient } from './vlcHttpClient.js';
 import { createDisplayMode } from './displayMode.js';
+import { findRemoteInputDevice, createRemoteInput } from './remoteInput.js';
+import { handleRemoteKey } from './remoteInputActions.js';
 
 function killOrphanedVlc() {
     try {
@@ -23,15 +26,39 @@ const displayMode = createDisplayMode({
 
 killOrphanedVlc();
 
+// Single shared reference, not per-connection: this is a single-client kiosk
+// appliance with one physical remote and at most one active session at a
+// time (see docs/superpowers/specs/2026-11-12-remote-input-bypass-design.md).
+let currentSession = null;
+
+try {
+    const devicePath = findRemoteInputDevice(fs.readFileSync('/proc/bus/input/devices', 'utf8'));
+    if (devicePath) {
+        createRemoteInput({
+            devicePath,
+            onKeyDown: (keyName) => handleRemoteKey(keyName, () => currentSession),
+            onError: (err) => console.error('remote input device error:', err.message)
+        });
+    } else {
+        console.error('remote input device ("keyd virtual keyboard") not found - remote control during playback will not work');
+    }
+} catch (err) {
+    // Never let a remote-input setup failure block the daemon's core
+    // WebSocket/HTTP responsibilities.
+    console.error('remote input setup failed:', err.message);
+}
+
 createServer({
     port: 8082,
-    createSession: () => new Session({
-        // Session calls this with { password, httpPort, audioDevice } only -
-        // bind the real spawnFn here since createVlcProcess requires it.
-        createVlcProcess: (opts) => createVlcProcess({ ...opts, spawnFn: spawn }),
-        createVlcHttpClient,
-        displayMode
-    })
+    createSession: () => {
+        const session = new Session({
+            createVlcProcess: (opts) => createVlcProcess({ ...opts, spawnFn: spawn }),
+            createVlcHttpClient,
+            displayMode
+        });
+        currentSession = session;
+        return session;
+    }
 });
 
 console.log('litefin-bridge listening on ws://127.0.0.1:8082');

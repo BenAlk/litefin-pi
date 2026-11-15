@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 
-const TICKS_PER_SECOND = 10000000;
+export const TICKS_PER_SECOND = 10000000;
 
 export class Session extends EventEmitter {
     constructor({
@@ -12,8 +12,14 @@ export class Session extends EventEmitter {
         httpPort = 9191,
         pollIntervalMs = 250,
         upNextThresholdSeconds = 30,
-        httpReadyAttempts = 25,
-        httpReadyRetryDelayMs = 200,
+        // 60 * 250ms = 15s - confirmed on real Pi 4 hardware that the original
+        // 25 * 200ms = 5s default was too short: with video decode, Wayland
+        // surface setup, audio negotiation, and the Lua interface all
+        // initializing together, VLC's HTTP interface sometimes isn't ready
+        // within 5s, surfacing a spurious "never became ready" error even
+        // though the same spawn succeeds fine given a few more seconds.
+        httpReadyAttempts = 60,
+        httpReadyRetryDelayMs = 250,
         audioDevice = 'plughw:CARD=vc4hdmi0,DEV=0',
         introSkipperFilePath = '/tmp/litefin-intro-skipper.json',
         generatePassword = () => crypto.randomBytes(16).toString('hex')
@@ -36,6 +42,8 @@ export class Session extends EventEmitter {
         this._pollTimer = null;
         this._stopping = false;
         this._everReachedPlaying = false;
+        this._introStartSeconds = undefined;
+        this._introEndSeconds = undefined;
         this._upNextFired = false;
         this._lastState = { time: 0, duration: 0, paused: true };
     }
@@ -45,6 +53,8 @@ export class Session extends EventEmitter {
         // segment fetch (Task 9) only resolves after this method returns, so
         // the Lua script polls this file throughout playback rather than
         // reading it once at VLC startup (see Global Constraints).
+        this._introStartSeconds = undefined;
+        this._introEndSeconds = undefined;
         this._writeIntroSkipperFile({});
         await this._displayMode.setPlaybackMode();
 
@@ -144,24 +154,34 @@ export class Session extends EventEmitter {
     }
 
     async pause() {
-        await this._httpClient.sendCommand('pl_pause');
+        if (this._httpClient) {
+            try { await this._httpClient.sendCommand('pl_pause'); } catch (err) { /* vlc may already be gone */ }
+        }
     }
 
     async resume() {
-        await this._httpClient.sendCommand('pl_play');
+        if (this._httpClient) {
+            try { await this._httpClient.sendCommand('pl_play'); } catch (err) { /* vlc may already be gone */ }
+        }
     }
 
     async seek(ticks) {
         const seconds = Math.floor(ticks / TICKS_PER_SECOND);
-        await this._httpClient.sendCommand('seek', { val: String(seconds) });
+        if (this._httpClient) {
+            try { await this._httpClient.sendCommand('seek', { val: String(seconds) }); } catch (err) { /* vlc may already be gone */ }
+        }
     }
 
     async setAudioTrack(index) {
-        await this._httpClient.sendCommand('audio_track', { val: String(index) });
+        if (this._httpClient) {
+            try { await this._httpClient.sendCommand('audio_track', { val: String(index) }); } catch (err) { /* vlc may already be gone */ }
+        }
     }
 
     async setSubtitleTrack(index) {
-        await this._httpClient.sendCommand('subtitle_track', { val: String(index) });
+        if (this._httpClient) {
+            try { await this._httpClient.sendCommand('subtitle_track', { val: String(index) }); } catch (err) { /* vlc may already be gone */ }
+        }
     }
 
     async stop() {
@@ -176,19 +196,46 @@ export class Session extends EventEmitter {
         await this._displayMode.setUiMode();
     }
 
+    // Unlike the WebSocket 'stop' command, a remote-triggered stop is never
+    // initiated by Litefin itself, so Litefin has no other way to find out
+    // it happened. This is deliberately NOT 'ended' - Litefin's _onEnded()
+    // unconditionally treats that as natural completion (reports the full
+    // duration as the position, marking the item fully watched instead of
+    // saving a resume point). 'remotestop' is forwarded to Litefin's own
+    // onBack(), which captures the real current position correctly.
+    async stopFromRemote() {
+        await this.stop();
+        this.emit('remotestop');
+    }
+
     getCurrentState() {
         return this._lastState;
     }
 
     setIntroSkipperTimestamps({ introStartTicks, introEndTicks } = {}) {
         if (introStartTicks === undefined || introEndTicks === undefined) {
+            this._introStartSeconds = undefined;
+            this._introEndSeconds = undefined;
             this._writeIntroSkipperFile({});
             return;
         }
+        this._introStartSeconds = introStartTicks / TICKS_PER_SECOND;
+        this._introEndSeconds = introEndTicks / TICKS_PER_SECOND;
         this._writeIntroSkipperFile({
-            introStart: introStartTicks / TICKS_PER_SECOND,
-            introEnd: introEndTicks / TICKS_PER_SECOND
+            introStart: this._introStartSeconds,
+            introEnd: this._introEndSeconds
         });
+    }
+
+    isIntroWindowActive() {
+        if (this._introStartSeconds === undefined || this._introEndSeconds === undefined) return false;
+        const t = this._lastState.time;
+        return t >= this._introStartSeconds && t < this._introEndSeconds;
+    }
+
+    async seekPastIntro() {
+        if (this._introEndSeconds === undefined) return;
+        await this.seek(this._introEndSeconds * TICKS_PER_SECOND);
     }
 
     _writeIntroSkipperFile(payload) {
